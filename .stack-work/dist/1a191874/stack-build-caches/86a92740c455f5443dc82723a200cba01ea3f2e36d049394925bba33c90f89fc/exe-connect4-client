@@ -1,0 +1,12 @@
+? C:\Users\ADMIN\AppData\Local\Programs\stack\x86_64-windows\ghc-9.10.3\lib\x86_64-windows-ghc-9.10.3\rts-1.0.2\include\ghcversion.h
+: hash: 7038bb968ecc358729edd5d1e72a638409aaf5ea6ab13ce6ec7f253daa3b6529
+C:\Users\ADMIN\Connect Four\LTH\.stack-work\dist\1a191874\build\connect4-client\autogen\Paths_connect_four.hs:
+  hash: 3314bdb7160f4b907dd7cec0580a307a51d18cd21632a8ca77040e49bc98bbcc
+C:\Users\ADMIN\Connect Four\LTH\.stack-work\dist\1a191874\build\connect4-client\autogen\cabal_macros.h:
+  hash: a4e8d426a99b8b40748ffa77b00bf2355bacc4006b6adce26f857c17a12e8957
+C:\Users\ADMIN\Connect Four\LTH\app\Client\Main.hs:
+  hash: 13a77e24a89628321c2757f3b9f9952ee773242a8b46de933883b94935a4a772
+C:\Users\ADMIN\Connect Four\LTH\connect-four.cabal:
+  hash: 0b21a0f2c0891a7225d1a432e94749a6f5528ac95a48378b4f0843127fc37d65
+C:\Users\ADMIN\Connect Four\LTH\package.yaml:
+  hash: 88f8d39c3543389fdf199e9b7638cce898b93b1661f48201e09e3ae818aab542
