@@ -16,6 +16,8 @@ import Text.Read (readMaybe)
 import Config
 import Network.Message
 
+import Core.Types (Board)
+import Utils.Serializer (deserializeBoard, displayBoard)
 -- Receive buffered messages
 recvMessages :: Socket -> BS.ByteString -> IO (Either SomeException ([BS.ByteString], BS.ByteString))
 recvMessages sock leftover = do
@@ -89,6 +91,12 @@ handleMsg raw =
   case deserializeSM raw of
     Nothing -> putStrLn $ "Bad message: " ++ BS.unpack raw
     Just msg -> case msg of
+      -- * THÊM CASE NÀY (nên đặt ở đầu) *
+      SMUpdateBoard boardStr ->
+        case deserializeBoard boardStr of
+          Just b -> putStrLn $ "\n" ++ displayBoard b
+          Nothing -> putStrLn "[Lỗi: Không thể hiển thị bàn cờ]"
+
       SMWelcome p -> putStrLn $ "You are player: " ++ show p
       SMYourTurn -> putStrLn "Your turn!"
       SMOpponentTurn -> putStrLn "Opponent's turn."

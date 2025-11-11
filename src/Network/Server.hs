@@ -15,6 +15,7 @@ import Config
 import Core.Types
 import Core.Logic
 import Network.Message
+import Utils.Serializer (serializeBoard)
 
 -- Receive buffered messages
 recvMessages :: Socket -> BS.ByteString -> IO (Either SomeException ([BS.ByteString], BS.ByteString))
@@ -139,24 +140,34 @@ processOne mySock myPlayer oppSock stateVar raw =
           else case makeMove st col of
             Nothing -> return (st, ([(mySock, SMInvalidMove "Invalid column")], st))
             Just ns -> do
+              -- * LẤY BOARD VÀ SERIALIZE NÓ *
+              let newBoardStr = serializeBoard (board ns)
+              let updateMsg = SMUpdateBoard newBoardStr
+              
               let result = checkGameResult ns
               let outs =
                     case result of
                       InProgress ->
                         [ (mySock, SMValidMove col),
                           (oppSock, SMOpponentMove col),
+                          (mySock, updateMsg),   -- * THÊM DÒNG NÀY *
+                          (oppSock, updateMsg),  -- * THÊM DÒNG NÀY *
                           (mySock, SMOpponentTurn),
                           (oppSock, SMYourTurn)
                         ]
                       Winner p ->
                         [ (mySock, SMValidMove col),
                           (oppSock, SMOpponentMove col),
+                          (mySock, updateMsg),   -- * THÊM DÒNG NÀY *
+                          (oppSock, updateMsg),  -- * THÊM DÒNG NÀY *
                           (mySock, SMGameOver (Winner p)),
                           (oppSock, SMGameOver (Winner p))
                         ]
                       Draw ->
                         [ (mySock, SMValidMove col),
                           (oppSock, SMOpponentMove col),
+                          (mySock, updateMsg),   -- * THÊM DÒNG NÀY *
+                          (oppSock, updateMsg),  -- * THÊM DÒNG NÀY *
                           (mySock, SMGameOver Draw),
                           (oppSock, SMGameOver Draw)
                         ]

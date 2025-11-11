@@ -1,10 +1,9 @@
--- src/Network/Message.hs
 module Network.Message where
 
 import Core.Types
 import Core.Player
 import qualified Data.ByteString.Char8 as BS
-
+import Text.Read (readMaybe)
 -- Server Messages
 data ServerMessage
   = SMWelcome Player              -- Chào mừng + gán màu
@@ -18,6 +17,7 @@ data ServerMessage
   | SMGameOver GameResult         -- Kết thúc game
   | SMError String
   | SMText String                 -- Lỗi
+  | SMUpdateBoard String          -- Cập nhật bảng trò chơi
   deriving (Eq, Show)
 
 -- Client Messages
@@ -41,6 +41,7 @@ serializeSM msg = BS.pack (toStr msg ++ "\n")
     toStr (SMOpponentMove col) = "OPP_MOVE|" ++ show col
     toStr (SMGameOver result) = "GAME_OVER|" ++ showResult result
     toStr (SMError err) = "ERROR|" ++ err
+    toStr (SMUpdateBoard boardStr) = "UPDATE_BOARD|" ++ boardStr -- * THÊM DÒNG NÀY *
     
     showResult (Winner p) = "WIN|" ++ [playerSymbol p]
     showResult Draw = "DRAW"
@@ -61,6 +62,7 @@ deserializeSM bs = parseMsg (BS.unpack $ BS.takeWhile (/= '\n') bs)
       ("OPP_MOVE", '|':col) -> readMaybe col >>= Just . SMOpponentMove
       ("GAME_OVER", '|':result) -> parseResult result >>= Just . SMGameOver
       ("ERROR", '|':err) -> Just $ SMError err
+      ("UPDATE_BOARD", '|':boardStr) -> Just $ SMUpdateBoard boardStr -- * THÊM DÒNG NÀY *
       _ -> Nothing
     
     parseResult str = case break (== '|') str of
@@ -69,10 +71,10 @@ deserializeSM bs = parseMsg (BS.unpack $ BS.takeWhile (/= '\n') bs)
       ("PROGRESS", _) -> Just InProgress
       _ -> Nothing
     
-    readMaybe :: Read a => String -> Maybe a
-    readMaybe s = case reads s of
-      [(val, "")] -> Just val
-      _ -> Nothing
+    -- readMaybe :: Read a => String -> Maybe a
+    -- readMaybe s = case reads s of
+    --   [(val, "")] -> Just val
+    --   _ -> Nothing
 
 -- Serialize ClientMessage -> ByteString + \n
 serializeCM :: ClientMessage -> BS.ByteString
