@@ -1,3 +1,6 @@
+### 📂 Project Structure
+
+```bash
 LTH/
 │
 ├── .stack-work/                # Thư mục build tự động của Stack
@@ -40,3 +43,4 @@ LTH/
 ├── README.md
 ├── stack.yaml
 └── stack.yaml.lock
+```
