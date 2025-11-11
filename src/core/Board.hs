@@ -1,67 +1,60 @@
-module Core.Board 
-  ( dropPiece
-  , checkWin
-  , isFull
-  , validMoves
-  , showBoard
-  ) where
+-- src/core/Board.hs
+module Core.Board where
 
 import Core.Types
-import Data.List (transpose, intercalate)
+import Config
+import Data.List (transpose)
 
--- Thả quân vào cột (trả về Nothing nếu cột đầy)
-dropPiece :: Int -> Player -> Board -> Maybe Board
-dropPiece col player board
-  | col < 0 || col >= 7 = Nothing
+-- Tạo bàn cờ trống
+emptyBoard :: Board
+emptyBoard = Board $ replicate boardRows (replicate boardCols Empty)
+
+-- Lấy ô tại vị trí (row, col)
+getCell :: Board -> Int -> Int -> Maybe Cell
+getCell (Board rows) r c
+  | r < 0 || r >= boardRows || c < 0 || c >= boardCols = Nothing
+  | otherwise = Just $ (rows !! r) !! c
+
+-- Đặt quân cờ vào cột
+dropPiece :: Board -> Int -> Player -> Maybe Board
+dropPiece board@(Board rows) col player
+  | col < 0 || col >= boardCols = Nothing
   | otherwise = 
-      let column = transpose board !! col
-          emptyRow = length (takeWhile (== Empty) (reverse column))
-      in if emptyRow == 0 
-         then Nothing
-         else Just $ updateBoard (6 - emptyRow) col player board
+      let column = transpose rows !! col
+          rowIdx = findEmptyRow column
+      in case rowIdx of
+           Nothing -> Nothing
+           Just r -> Just $ Board $ updateMatrix rows r col (Filled player)
 
-updateBoard :: Int -> Int -> Player -> Board -> Board
-updateBoard row col player board =
-  let (before, current:after) = splitAt row board
-      newRow = take col current ++ [Filled player] ++ drop (col + 1) current
-  in before ++ [newRow] ++ after
+-- Tìm hàng trống từ dưới lên
+findEmptyRow :: [Cell] -> Maybe Int
+findEmptyRow cells = 
+  let indexed = zip [0..] cells
+      empties = filter (\(_, cell) -> cell == Empty) indexed
+  in if null empties 
+     then Nothing 
+     else Just . fst $ last empties
 
--- Kiểm tra thắng
-checkWin :: Player -> Board -> Bool
-checkWin player board =
-  any (hasFour player) (rows ++ cols ++ diags)
-  where
-    rows = board
-    cols = transpose board
-    diags = diagonals board ++ diagonals (map reverse board)
+-- Cập nhật ma trận
+updateMatrix :: [[Cell]] -> Int -> Int -> Cell -> [[Cell]]
+updateMatrix rows r c newCell = 
+  let (before, row:after) = splitAt r rows
+      updatedRow = take c row ++ [newCell] ++ drop (c + 1) row
+  in before ++ updatedRow : after
 
-hasFour :: Player -> [Cell] -> Bool
-hasFour player cells = any (all (== Filled player)) (windows 4 cells)
+-- Kiểm tra cột đầy
+isColumnFull :: Board -> Int -> Bool
+isColumnFull (Board rows) col
+  | col < 0 || col >= boardCols = True
+  | otherwise = 
+      let topRow = head rows
+          topCell = topRow !! col
+      in topCell /= Empty
 
-windows :: Int -> [a] -> [[a]]
-windows n xs
-  | length xs < n = []
-  | otherwise = take n xs : windows n (drop 1 xs)
+-- Kiểm tra bàn cờ đầy
+isBoardFull :: Board -> Bool
+isBoardFull board = all (isColumnFull board) [0..boardCols-1]
 
-diagonals :: Board -> [[Cell]]
-diagonals board = 
-  [ [board !! r !! c | (r, c) <- zip [sr..] [sc..], r < 6, c < 7] 
-  | sr <- [0..5], sc <- [0..6], sr == 0 || sc == 0 ]
-
--- Bàn cờ đầy
-isFull :: Board -> Bool
-isFull = all (notElem Empty)
-
--- Các nước đi hợp lệ
-validMoves :: Board -> [Int]
-validMoves board = [c | c <- [0..6], Empty `elem` (transpose board !! c)]
-
--- Hiển thị bàn cờ
-showBoard :: Board -> String
-showBoard board = 
-  unlines (map showRow board) ++ " 0 1 2 3 4 5 6"
-  where
-    showRow = intercalate "" . map showCell
-    showCell Empty = "."
-    showCell (Filled Red) = "R"
-    showCell (Filled Yellow) = "Y"
+-- Các cột hợp lệ
+validColumns :: Board -> [Int]
+validColumns board = filter (not . isColumnFull board) [0..boardCols-1]

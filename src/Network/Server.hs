@@ -1,93 +1,164 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.Server (runServer) where
+module Network.Server where
 
-import Core.Types
-import Core.Board
-import Network.Message
+import Prelude hiding (read)
 import Network.Socket
-import System.IO
-import Control.Concurrent (forkIO, MVar, newMVar, modifyMVar_, readMVar)
-import Control.Monad (forever)
-import Data.Aeson (encode, decode)
-import qualified Data.ByteString.Lazy.Char8 as BL
-import Control.Exception (finally, bracket, catch, SomeException)
+import Network.Socket.ByteString (recv, sendAll)
+import qualified Data.ByteString.Char8 as BS
+import Control.Concurrent
+import Control.Concurrent.Chan
+import Control.Exception (SomeException, try, finally, bracket)
+import Control.Monad (forever, void)
+import Data.IORef
 
--- Trạng thái server đơn giản
-data ServerState = ServerState
-  { ssBoard :: Board
-  , ssTurn :: Player
-  , ssPlayerX :: Maybe Handle
-  , ssPlayerO :: Maybe Handle
-  }
+import Config
+import Core.Types
+import Core.Logic
+import Network.Message
 
-runServer :: String -> IO ()
-runServer port = withSocketsDo $ do
-    addr <- resolve port
-    putStrLn $ "Server dang nghe o cong " ++ port
-    bracket (open addr) close loop
+-- Receive buffered messages
+recvMessages :: Socket -> BS.ByteString -> IO (Either SomeException ([BS.ByteString], BS.ByteString))
+recvMessages sock leftover = do
+  eres <- try $ recv sock bufferSize
+  case eres of
+    Left ex -> return $ Left ex
+    Right chunk ->
+      if BS.null chunk
+        then return $ Right ([], leftover)
+        else
+          let combined = BS.append leftover chunk
+              parts = BS.split '\n' combined
+              lastByteIsNewline = not (BS.null combined) && BS.last combined == '\n'
+              (complete, newLeft) =
+                if lastByteIsNewline
+                  then (filter (not . BS.null) parts, "")
+                  else (init parts, last parts)
+           in return $ Right (complete, newLeft)
+
+-- Safe send
+trySend :: Socket -> ServerMessage -> IO ()
+trySend sock msg = do
+  let bs = BS.append (serializeSM msg) (BS.singleton messageDelimiter)
+  _ <- try $ sendAll sock bs :: IO (Either SomeException ())
+  return ()
+
+-- Check if socket alive
+isSocketAlive :: Socket -> IO Bool
+isSocketAlive sock = do
+  result <- try $ sendAll sock BS.empty :: IO (Either SomeException ())
+  return $ case result of
+    Left _ -> False
+    Right () -> True
+
+-- Server entry
+runServer :: IO ()
+runServer = withSocketsDo $ do
+  addr <- resolve serverHost serverPort
+  bracket (open addr) close $ \sock -> do
+    putStrLn $ "Server listening on " ++ serverHost ++ ":" ++ serverPort
+    clientChan <- newChan
+    -- Accept loop
+    void $ forkIO $ forever $ do
+      (conn, peer) <- accept sock
+      putStrLn $ "Accepted connection from " ++ show peer
+      writeChan clientChan conn
+
+    -- Pairing loop
+    forever $ do
+      sock1 <- readChan clientChan
+      alive1 <- isSocketAlive sock1
+      if not alive1
+        then void (try (close sock1) :: IO (Either SomeException ()))
+        else do
+          sock2 <- readChan clientChan
+          alive2 <- isSocketAlive sock2
+          if not alive2
+            then writeChan clientChan sock1
+            else void $ forkIO (gameSession sock1 sock2)
   where
-    resolve p = do
-        let hints = defaultHints { addrFlags = [AI_PASSIVE], addrSocketType = Stream }
-        head <$> getAddrInfo (Just hints) Nothing (Just p)
-    
+    resolve host port = do
+      let hints = defaultHints {addrFlags = [AI_PASSIVE], addrSocketType = Stream}
+      addrs <- getAddrInfo (Just hints) (Just host) (Just port)
+      case addrs of
+        [] -> error "Cannot resolve server address!"
+        (addr:_) -> return addr
     open addr = do
-        sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
-        setSocketOption sock ReuseAddr 1
-        bind sock (addrAddress addr)
-        listen sock 2
-        return sock
-    
-    loop sock = do
-        let initState = ServerState emptyBoard Red Nothing Nothing
-        stateVar <- newMVar initState
-        
-        (h1, _) <- accept sock
-        handle1 <- socketToHandle h1 ReadWriteMode
-        hSetBuffering handle1 LineBuffering
-        putStrLn "Player 1 ket noi"
-        
-        modifyMVar_ stateVar $ \s -> return s { ssPlayerX = Just handle1 }
-        hPutStrLn handle1 (BL.unpack $ encode $ AssignPlayer Red)
-        
-        (h2, _) <- accept sock
-        handle2 <- socketToHandle h2 ReadWriteMode
-        hSetBuffering handle2 LineBuffering
-        putStrLn "Player 2 ket noi"
-        
-        modifyMVar_ stateVar $ \s -> return s { ssPlayerO = Just handle2 }
-        hPutStrLn handle2 (BL.unpack $ encode $ AssignPlayer Yellow)
-        
-        putStrLn "Game bat dau!"
-        broadcast stateVar
-        
-        forkIO $ handleClient stateVar handle1 Red
-        handleClient stateVar handle2 Yellow
+      sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
+      setSocketOption sock ReuseAddr 1
+      bind sock (addrAddress addr)
+      listen sock maxClients
+      return sock
 
-handleClient :: MVar ServerState -> Handle -> Player -> IO ()
-handleClient stateVar h player = forever $ do
-    line <- hGetLine h
-    case decode (BL.pack line) of
-      Just (SendMove col) -> processMove stateVar player col
-      _ -> return ()
+-- Game session
+gameSession :: Socket -> Socket -> IO ()
+gameSession sockRed sockYellow = do
+  stateVar <- newMVar newGame
+  buff1 <- newIORef BS.empty
+  buff2 <- newIORef BS.empty
 
-processMove :: MVar ServerState -> Player -> Int -> IO ()
-processMove stateVar player col = do
-    modifyMVar_ stateVar $ \s -> do
-        if ssTurn s /= player then return s
-        else case dropPiece col player (ssBoard s) of
-          Nothing -> return s
-          Just newBoard ->
-            let newTurn = if player == Red then Yellow else Red
-            in return s { ssBoard = newBoard, ssTurn = newTurn }
-    broadcast stateVar
+  trySend sockRed (SMWelcome Red)
+  trySend sockYellow (SMWelcome Yellow)
+  trySend sockRed SMYourTurn
+  trySend sockYellow SMOpponentTurn
 
-broadcast :: MVar ServerState -> IO ()
-broadcast stateVar = do
-    s <- readMVar stateVar
-    let status = if checkWin Red (ssBoard s) then Won Red
-                 else if checkWin Yellow (ssBoard s) then Won Yellow
-                 else if isFull (ssBoard s) then Draw
-                 else Playing (ssTurn s)
-    let msg = encode $ GameUpdate (ssBoard s) status
-    case ssPlayerX s of Just h -> hPutStrLn h (BL.unpack msg); _ -> return ()
-    case ssPlayerO s of Just h -> hPutStrLn h (BL.unpack msg); _ -> return ()
+  let clientLoop mySock myPlayer oppSock myBuff = forever $ do
+        leftover <- readIORef myBuff
+        eres <- recvMessages mySock leftover
+        case eres of
+          Left _ -> do
+            putStrLn $ "Player " ++ show myPlayer ++ " disconnected."
+            return ()
+          Right (msgs, newLeft) -> do
+            writeIORef myBuff newLeft
+            mapM_ (processOne mySock myPlayer oppSock stateVar) msgs
+
+  _ <- forkIO $ clientLoop sockRed Red sockYellow buff1
+  _ <- forkIO $ clientLoop sockYellow Yellow sockRed buff2
+
+  -- Cleanup sau 5 phút không hoạt động
+  void $ forkIO $ do
+    threadDelay 300000000
+    mapM_ (\s -> void (try (close s) :: IO (Either SomeException ()))) [sockRed, sockYellow]
+    putStrLn "Session cleaned."
+
+-- Process one message
+processOne :: Socket -> Player -> Socket -> MVar GameState -> BS.ByteString -> IO ()
+processOne mySock myPlayer oppSock stateVar raw =
+  case deserializeCM raw of
+    Nothing -> return ()
+    Just (CMMove col) -> handleMove col
+    Just CMQuit -> do
+      trySend oppSock (SMGameOver (Winner (if myPlayer == Red then Yellow else Red)))
+      putStrLn $ "Player " ++ show myPlayer ++ " quit."
+    _ -> return ()
+  where
+    handleMove col = do
+      (outs, _) <- modifyMVar stateVar $ \st ->
+        if currentPlayer st /= myPlayer
+          then return (st, ([(mySock, SMInvalidMove "Not your turn")], st))
+          else case makeMove st col of
+            Nothing -> return (st, ([(mySock, SMInvalidMove "Invalid column")], st))
+            Just ns -> do
+              let result = checkGameResult ns
+              let outs =
+                    case result of
+                      InProgress ->
+                        [ (mySock, SMValidMove col),
+                          (oppSock, SMOpponentMove col),
+                          (mySock, SMOpponentTurn),
+                          (oppSock, SMYourTurn)
+                        ]
+                      Winner p ->
+                        [ (mySock, SMValidMove col),
+                          (oppSock, SMOpponentMove col),
+                          (mySock, SMGameOver (Winner p)),
+                          (oppSock, SMGameOver (Winner p))
+                        ]
+                      Draw ->
+                        [ (mySock, SMValidMove col),
+                          (oppSock, SMOpponentMove col),
+                          (mySock, SMGameOver Draw),
+                          (oppSock, SMGameOver Draw)
+                        ]
+              return (ns, (outs, ns))
+      mapM_ (\(s, m) -> trySend s m) outs

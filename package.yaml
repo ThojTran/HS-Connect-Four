@@ -16,13 +16,15 @@ library:
   exposed-modules:
     - Core.Types
     - Core.Board
-    - Core.AI
+    - Core.Logic
+    - Core.Player
     - Network.Client
     - Network.Server
     - Network.Message
     - Utils.Parser
     - Utils.Serializer
     - Utils.Concurrency
+    - Config
 
 executables:
   connect4-client:

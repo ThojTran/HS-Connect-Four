@@ -1,39 +1,96 @@
-{-# LANGUAGE DeriveGeneric #-}
-
+-- src/Network/Message.hs
 module Network.Message where
 
 import Core.Types
-import GHC.Generics (Generic)
-import Data.Aeson (ToJSON, FromJSON)
+import Core.Player
+import qualified Data.ByteString.Char8 as BS
 
--- -- TIN NHẮN TỪ CLIENT GỬI LÊN SERVER --
+-- Server Messages
+data ServerMessage
+  = SMWelcome Player              -- Chào mừng + gán màu
+  | SMWaitingOpponent             -- Đợi người chơi khác
+  | SMGameStart                   -- Bắt đầu game
+  | SMYourTurn                    -- Đến lượt bạn
+  | SMOpponentTurn                -- Đến lượt đối thủ
+  | SMValidMove Int               -- Nước đi hợp lệ
+  | SMInvalidMove String          -- Nước đi không hợp lệ
+  | SMOpponentMove Int            -- Đối thủ đánh
+  | SMGameOver GameResult         -- Kết thúc game
+  | SMError String
+  | SMText String                 -- Lỗi
+  deriving (Eq, Show)
 
-data ClientMsg
-    = SendMove ColIndex -- Client gửi một nước đi
-    | RequestRestart    -- Client yêu cầu chơi lại (TODO)
-    deriving (Show, Eq, Generic)
+-- Client Messages
+data ClientMessage
+  = CMMove Int                    -- Đánh vào cột
+  | CMQuit 
+  | CMHelp                        -- Thoát
+  deriving (Eq, Show, Read)
 
--- -- TIN NHẮN TỪ SERVER GỬI VỀ CLIENT --
+-- Serialize ServerMessage -> ByteString + \n
+serializeSM :: ServerMessage -> BS.ByteString
+serializeSM msg = BS.pack (toStr msg ++ "\n")
+  where
+    toStr (SMWelcome p) = "WELCOME|" ++ [playerSymbol p]
+    toStr SMWaitingOpponent = "WAITING"
+    toStr SMGameStart = "START"
+    toStr SMYourTurn = "YOUR_TURN"
+    toStr SMOpponentTurn = "OPPONENT_TURN"
+    toStr (SMValidMove col) = "VALID|" ++ show col
+    toStr (SMInvalidMove reason) = "INVALID|" ++ reason
+    toStr (SMOpponentMove col) = "OPP_MOVE|" ++ show col
+    toStr (SMGameOver result) = "GAME_OVER|" ++ showResult result
+    toStr (SMError err) = "ERROR|" ++ err
+    
+    showResult (Winner p) = "WIN|" ++ [playerSymbol p]
+    showResult Draw = "DRAW"
+    showResult InProgress = "PROGRESS"
 
-data ServerMsg
-    -- Trạng thái
-    = GameUpdate Board GameStatus -- Cập nhật bàn cờ và trạng thái
-    | AssignPlayer Player         -- Gán người chơi (X hay O) khi mới kết nối
+-- Deserialize ByteString -> ServerMessage
+deserializeSM :: BS.ByteString -> Maybe ServerMessage
+deserializeSM bs = parseMsg (BS.unpack $ BS.takeWhile (/= '\n') bs)
+  where
+    parseMsg str = case break (== '|') str of
+      ("WELCOME", '|':p:[]) -> parsePlayer p >>= Just . SMWelcome
+      ("WAITING", _) -> Just SMWaitingOpponent
+      ("START", _) -> Just SMGameStart
+      ("YOUR_TURN", _) -> Just SMYourTurn
+      ("OPPONENT_TURN", _) -> Just SMOpponentTurn
+      ("VALID", '|':col) -> readMaybe col >>= Just . SMValidMove
+      ("INVALID", '|':reason) -> Just $ SMInvalidMove reason
+      ("OPP_MOVE", '|':col) -> readMaybe col >>= Just . SMOpponentMove
+      ("GAME_OVER", '|':result) -> parseResult result >>= Just . SMGameOver
+      ("ERROR", '|':err) -> Just $ SMError err
+      _ -> Nothing
+    
+    parseResult str = case break (== '|') str of
+      ("WIN", '|':p:[]) -> parsePlayer p >>= Just . Winner
+      ("DRAW", _) -> Just Draw
+      ("PROGRESS", _) -> Just InProgress
+      _ -> Nothing
+    
+    readMaybe :: Read a => String -> Maybe a
+    readMaybe s = case reads s of
+      [(val, "")] -> Just val
+      _ -> Nothing
 
-    -- Thông báo
-    | NotifyWait String           -- Báo client đợi (ví dụ: "Đợi người chơi khác")
-    | NotifyTurn Player           -- Báo lượt của ai
+-- Serialize ClientMessage -> ByteString + \n
+serializeCM :: ClientMessage -> BS.ByteString
+serializeCM msg = BS.pack (toStr msg ++ "\n")
+  where
+    toStr (CMMove col) = "MOVE|" ++ show col
+    toStr CMQuit = "QUIT"
 
-    -- Lỗi
-    | ErrorMove MoveError         -- Nước đi không hợp lệ
-    | ErrorInternal String        -- Lỗi hệ thống
-    deriving (Show, Eq, Generic)
-
-
--- -- INSTANCES CHO VIỆC SERIALIZE (JSON) --
-
-instance ToJSON ClientMsg
-instance FromJSON ClientMsg
-
-instance ToJSON ServerMsg
-instance FromJSON ServerMsg
+-- Deserialize ByteString -> ClientMessage
+deserializeCM :: BS.ByteString -> Maybe ClientMessage
+deserializeCM bs = parseMsg (BS.unpack $ BS.takeWhile (/= '\n') bs)
+  where
+    parseMsg str = case break (== '|') str of
+      ("MOVE", '|':col) -> readMaybe col >>= Just . CMMove
+      ("QUIT", _) -> Just CMQuit
+      _ -> Nothing
+    
+    readMaybe :: Read a => String -> Maybe a
+    readMaybe s = case reads s of
+      [(val, "")] -> Just val
+      _ -> Nothing

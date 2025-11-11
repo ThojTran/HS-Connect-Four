@@ -5,24 +5,28 @@ C:\Users\ADMIN\Connect Four\LTH\.stack-work\dist\1a191874\build\autogen\Paths_co
 C:\Users\ADMIN\Connect Four\LTH\.stack-work\dist\1a191874\build\autogen\cabal_macros.h:
   hash: 1116ac56e78799b7adbdb978c5bc456588eb7ce52d3494604cc3e1195d521ccd
 C:\Users\ADMIN\Connect Four\LTH\connect-four.cabal:
-  hash: 0b21a0f2c0891a7225d1a432e94749a6f5528ac95a48378b4f0843127fc37d65
+  hash: 71698d0a225f0a9f1f5081fb7ed63c3d4dc251c2130ff98e26867033f0613992
 C:\Users\ADMIN\Connect Four\LTH\package.yaml:
-  hash: 88f8d39c3543389fdf199e9b7638cce898b93b1661f48201e09e3ae818aab542
-C:\Users\ADMIN\Connect Four\LTH\src\Core\AI.hs:
-  hash: bbd25cf3eee944d3f70a7abc7b6486e6d07afcd2147ab80c24bdbb11038286aa
+  hash: de3582887aae5dd1c8f80f99ad8a6c4c094ba08fd62cfae3d0704b77cda3b133
+C:\Users\ADMIN\Connect Four\LTH\src\Config.hs:
+  hash: b89692ed96285b6ab76747f2c3e8bfea14d5f48bd3f6c1a2b757e544ca01e7d3
 C:\Users\ADMIN\Connect Four\LTH\src\Core\Board.hs:
-  hash: 3dde6841c3b859281613da9e90029aea2a591a5da488a4ca899bfeb1abacb5f7
+  hash: 77d01e8b1b909af8d56473ce26a632f3897c8d4959a1744125a87ba6cce5d00b
+C:\Users\ADMIN\Connect Four\LTH\src\Core\Logic.hs:
+  hash: 217063baf93102ebb6767dcf2e991468373d68c48d027f1f89f833c327bf0900
+C:\Users\ADMIN\Connect Four\LTH\src\Core\Player.hs:
+  hash: 478fab2dc88cd0388e288df4a09fd73ffaf6a086899407326d8ddca5a055a6c7
 C:\Users\ADMIN\Connect Four\LTH\src\Core\Types.hs:
-  hash: a91935cc7ef57ebdfdbe7924c96aaf73e3843d9a6ec6428fde28dc675e2d4378
+  hash: 2f3c62a4952f330870b44cca158a6f2235095ec2d7aa776f5ab51f8c4248dee7
 C:\Users\ADMIN\Connect Four\LTH\src\Network\Client.hs:
-  hash: 4d3c41999b3ecde9a5d635eac01dcfc12bd6f17d9b6136f75a9aa62b2bc6d186
+  hash: 1cadd7b94d91ae8100963d8e2c8f0b5fdb308c480cc4facbd6066ff868951aac
 C:\Users\ADMIN\Connect Four\LTH\src\Network\Message.hs:
-  hash: 311f0526c6e1b51da06b4f740e24bce345d939f76d3bf03e424f78fac98a99aa
+  hash: 4e1eceb2b497891a1314fbdbe551c14544cd76e0431069877ffe15e261f87acd
 C:\Users\ADMIN\Connect Four\LTH\src\Network\Server.hs:
-  hash: 4fd1a1eb4f87b6b540edce9ab1becd899ced7a47b96c82a4ef009836245b214c
+  hash: b70271e22697829803c87f50aa46defb93fb6270810366d6006835b079701bcd
 C:\Users\ADMIN\Connect Four\LTH\src\Utils\Concurrency.hs:
-  hash: 1b50e1c8280d8a3f1688d40511c13fe831d7eb25be7cd00def4815af26919338
+  hash: 48b695f8ffd178d5a3c116c2cebcc220f63d40d8684f78fbc5ecfbe1e18eecea
 C:\Users\ADMIN\Connect Four\LTH\src\Utils\Parser.hs:
-  hash: bdec078c5a4a983e4e31fdfc29d557de08b3acfdabf44a402eb3494a276c677c
+  hash: 79993e3062ed036ae8dcb505c2d056f17eba1f745004525cb74a1988799bda78
 C:\Users\ADMIN\Connect Four\LTH\src\Utils\Serializer.hs:
-  hash: b5ae19ad1051a4b9bbb2379eba40b28f430ae54567c7fe1e22f1258fa2bc3d54
+  hash: 18d6f65b5c8d3e925be5c263317b2d04f144e9b30ba4c05b6deef3a2cc15323a
