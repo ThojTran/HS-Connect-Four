@@ -85,7 +85,7 @@ test-suite connect4-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      GameLogicSpec
+      LogicGameSpec
       NetworkSpec
       Paths_connect_four
   hs-source-dirs:
