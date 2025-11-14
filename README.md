@@ -35,6 +35,7 @@ LTH/
 ├── test/                       # Unit tests cho từng module
 │   ├── GameLogicSpec.hs
 │   └── NetworkSpec.hs
+│   └── Spec.hs
 │
 ├── CHANGELOG.md
 ├── connect-four.cabal          # File cấu hình chính cho Haskell project
